@@ -30,7 +30,7 @@ def get_stops_data():
     try:
         response = requests.get('https://mpk.nowysacz.pl/jsonStops/stops.json')
     except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
     try:
         response.raise_for_status()

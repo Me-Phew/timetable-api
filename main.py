@@ -1,5 +1,5 @@
 import requests
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
@@ -27,6 +27,16 @@ app.add_middleware(
 
 @app.get(settings.BASE_URL + "/stops")
 def get_stops_data():
-    data = requests.get('')
+    try:
+        response = requests.get('https://mpk.nowysacz.pl/jsonStops/stops.json')
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=e)
 
-    return data
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError:
+        raise HTTPException(status_code=response.status_code, detail=response.json())
+
+    content = response.json()
+
+    return content

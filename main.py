@@ -1,6 +1,7 @@
 import requests
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 
 from config import settings
 
@@ -23,6 +24,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get(settings.BASE_URL, tags=["Docs Redirection"])
+def docs_redirection():
+    return RedirectResponse(
+        f'{settings.BASE_URL}/redoc', status_code=status.HTTP_308_PERMANENT_REDIRECT
+    )
 
 
 @app.get(settings.BASE_URL + "/stops")

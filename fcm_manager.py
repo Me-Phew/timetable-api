@@ -15,17 +15,15 @@ firebase_admin.initialize_app(cred)
 
 
 def create_message(*,
-                   title: str,
-                   message: str,
+                   data: dict[str, str],
                    fcm_token: str) -> messaging.Message:
     return messaging.Message(
-        notification=messaging.Notification(title=title,
-                                            body=message),
+        data=data,
         token=fcm_token,
     )
 
 
-async def send_messages(messages: list[messaging.Message]) -> None | list:
+def send_messages(messages: list[messaging.Message]) -> None | list:
     response = messaging.send_all(messages)
 
     if response.failure_count > 0:

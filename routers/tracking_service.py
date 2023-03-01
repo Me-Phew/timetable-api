@@ -43,10 +43,43 @@ def request_tracking(tracking_request: TrackingRequest,
 
     if saved_tracking_data:
         if tracking_request.fcm_token in json.dumps(saved_tracking_data):
-            # TODO: Improve?
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail='There already exists a tracking session '
-                                       'associated to provided data')
+            stops = saved_tracking_data['stops']
+
+            for stop_id, buses in stops.items():
+                for bus_id, tracking_data in buses['buses'].items():
+                    fcm_tokens = tracking_data['fcm_tokens']
+
+                    if tracking_request.fcm_token in fcm_tokens:
+                        if (
+                                tracking_request.tracking_info.stop_number == stop_id
+                                and tracking_request.tracking_info.bus_number == bus_id
+                        ):
+                            return {'status': 'ok'}
+                        else:
+                            fcm_tokens_filtered = [
+                                [fcm_token for fcm_token in fcm_tokens if
+                                 fcm_token != tracking_request.fcm_token]
+                            ]
+                            if fcm_tokens_filtered:
+                                redis_client.json().set(
+                                    'tracking_list',
+                                    Path(
+                                        f'$.stops.'
+                                        f'{tracking_request.tracking_info.stop_number}.'
+                                        f'buses.'
+                                        f'{tracking_request.tracking_info.bus_number}'),
+                                    {
+                                        'fcm_tokens': fcm_tokens_filtered
+                                    })
+                            else:
+                                redis_client.json().delete(
+                                    'tracking_list',
+                                    Path(
+                                        f'$.stops.'
+                                        f'{tracking_request.tracking_info.stop_number}.'
+                                        f'buses.'
+                                        f'{tracking_request.tracking_info.bus_number}')
+                                )
 
         bus = redis_client.json().get(
             'tracking_list',
@@ -113,18 +146,16 @@ def cancel_tracking(tracking_request: TrackingRequest):
              f'{tracking_request.tracking_info.bus_number}.fcm_tokens'),
         tracking_request.fcm_token)
 
-    print(fcm_token_index)
-
     if not fcm_token_index:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail='Did not found tracking session associated to '
+                            detail='Did not find tracking session associated to '
                                    'provided data')
 
     fcm_token_index = fcm_token_index[0]
 
     if fcm_token_index == -1:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail='Did not found tracking session associated to '
+                            detail='Did not find tracking session associated to '
                                    'provided data')
 
     redis_client.json().arrpop(
@@ -134,3 +165,27 @@ def cancel_tracking(tracking_request: TrackingRequest):
         fcm_token_index)
 
     return {'status': 'ok'}
+
+
+@router.get('/active-session/{fcm_token}')
+def get_active_tracking_session(fcm_token: str):
+    saved_tracking_data = redis_client.json().get('tracking_list')
+    print(saved_tracking_data)
+
+    if saved_tracking_data:
+        if fcm_token in json.dumps(saved_tracking_data):
+            stops = saved_tracking_data['stops']
+
+            for stop_id, buses in stops.items():
+                for bus_id, tracking_data in buses['buses'].items():
+                    fcm_tokens = tracking_data['fcm_tokens']
+
+                    if fcm_token in fcm_tokens:
+                        return {
+                            'stop_number': stop_id,
+                            'bus_number': bus_id,
+                        }
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                        detail='Did not find an active tracking session associated to '
+                               'provided token')

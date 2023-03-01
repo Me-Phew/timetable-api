@@ -1,7 +1,7 @@
-import asyncio
 import datetime
 import logging
 import sys
+import threading
 import time
 
 import pytz
@@ -115,7 +115,7 @@ def remove_stop(stop_num: int) -> None:
     redis_client.json().delete('tracking_list', Path(f'$.stops.{stop_num}'))
 
 
-async def tracking_task():
+def tracking_task():
     tracking_logger.info('Running tracking task')
     start_time = time.time()
     tracking_list = redis_client.json().get('tracking_list')
@@ -145,38 +145,56 @@ async def tracking_task():
                     time_since_update = time.time() - last_updated
 
                     if time_since_update > 60:
-                        bus_eta = update_bus_eta(stop_num=stop_num, bus_num=bus_num)
+                        bus_eta = update_bus_eta(stop_num=stop_num,
+                                                 bus_num=bus_num)
                 else:
-                    bus_eta = update_bus_eta(stop_num=stop_num, bus_num=bus_num)
+                    bus_eta = update_bus_eta(stop_num=stop_num,
+                                             bus_num=bus_num)
 
                 if bus_eta is None:
                     remove_bus(stop_num=stop_num, bus_num=bus_num)
                 else:
-                    if (bus_eta < 30 and bus_eta % 10 == 0) or (
-                            bus_eta <= 15 and bus_eta % 5 == 0):
+                    last_send_eta = bus.get('last_send_eta')
+
+                    if (
+                            ((bus_eta < 30 and bus_eta % 10 == 0) or (
+                                    bus_eta <= 15 and bus_eta % 5 == 0) or (
+                                     bus_eta < 5)) and last_send_eta != bus_eta
+                    ):
+
                         if bus_eta == 0:
-                            title = 'Bus is leaving NOW >>>'
-                        else:
-                            title = f'ETA: {bus_eta} minutes'
+                            remove_bus(stop_num=stop_num, bus_num=bus_num)
 
                         messages = []
 
                         for fcm_token in bus_fcm_tokens:
-                            message = create_message(title=title,
-                                                     message=f'Tracking bus number '
-                                                             f'{bus_num}',
-                                                     fcm_token=fcm_token)
+                            message = create_message(data={
+                                "eta": str(bus_eta),
+                                "bus": str(bus_num),
+                                "stop": str(stop_num),
+                            },
+                                fcm_token=fcm_token)
                             messages.append(message)
 
                         if messages:
                             tracking_logger.info(f'Sending {len(messages)} messages')
+
                             # Separate messages into 500 sized chunks
                             # to comply with fcm limitation of 500 messages per batch
                             message_chunks = [messages[x:x + 500] for x in
                                               range(0, len(messages), 500)]
 
                             for message_chunk in message_chunks:
-                                asyncio.create_task(send_messages(message_chunk))
+                                t = threading.Thread(target=send_messages,
+                                                     args=(message_chunk,))
+                                t.start()
+
+                            redis_client.json().set('tracking_list',
+                                                    Path(
+                                                        f'$.stops.{stop_num}.'
+                                                        f'buses.{bus_num}.'
+                                                        f'last_send_eta'),
+                                                    bus_eta)
                     else:
                         tracking_logger.info(f'Skipping send (eta {bus_eta})')
 

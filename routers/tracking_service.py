@@ -122,7 +122,7 @@ def request_tracking(tracking_request: TrackingRequest,
     else:
         tracking_data = {
             'stops': {
-                tracking_request.tracking_info.bus_number: {
+                tracking_request.tracking_info.stop_number: {
                     'buses': {
                         tracking_request.tracking_info.bus_number: {
                             "fcm_tokens": [

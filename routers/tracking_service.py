@@ -140,23 +140,22 @@ def request_tracking(tracking_request: TrackingRequest,
 
 @router.post('/cancel-tracking')
 def cancel_tracking(tracking_request: TrackingRequest):
-    fcm_token_index = redis_client.json().arrindex(
+    fcm_tokens = redis_client.json().get(
         'tracking_list',
         Path(f'.stops.{tracking_request.tracking_info.stop_number}.buses.'
-             f'{tracking_request.tracking_info.bus_number}.fcm_tokens'),
-        tracking_request.fcm_token)
+             f'{tracking_request.tracking_info.bus_number}.fcm_tokens'))
 
-    if not fcm_token_index:
+    if not fcm_tokens:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail='Did not find tracking session associated to '
                                    'provided data')
 
-    fcm_token_index = fcm_token_index[0]
+    fcm_token_index = None
 
-    if fcm_token_index == -1:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail='Did not find tracking session associated to '
-                                   'provided data')
+    for index, fcm_token in enumerate(fcm_tokens):
+        if fcm_token == tracking_request.fcm_token:
+            fcm_token_index = index
+            break
 
     redis_client.json().arrpop(
         'tracking_list',

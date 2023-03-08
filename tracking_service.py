@@ -79,13 +79,13 @@ def update_bus_eta(*, stop_num: int, bus_num: int) -> int | None:
 
         warsaw_now = datetime.datetime.now(tz_warsaw)
 
-        # TODO: Fix edge case
-
-        departure_time = datetime.datetime.now().replace(
+        departure_time = datetime.datetime.now().astimezone().replace(
             hour=hour,
             minute=minute,
-            tzinfo=warsaw_now.tzinfo,
         )
+
+        if warsaw_now > departure_time:
+            departure_time = departure_time + datetime.timedelta(days=1)
 
         difference = departure_time - warsaw_now
         difference = difference.total_seconds() / 60

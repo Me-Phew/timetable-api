@@ -9,7 +9,7 @@ from redis_config import redis_client
 
 def fetch_stops_data() -> dict:
     try:
-        response = requests.get('https://mpk.nowysacz.pl/jsonStops/stops.json', verify='certificates')
+        response = requests.get('https://mpk.nowysacz.pl/jsonStops/stops.json', verify='mpk-nowysacz-pl-chain.pem')
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=str(e))

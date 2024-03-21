@@ -20,6 +20,12 @@ def create_message(*,
     return messaging.Message(
         data=data,
         token=fcm_token,
+        android=messaging.AndroidConfig(
+            priority="high", notification=messaging.AndroidNotification(priority="max")
+        ),
+        apns=messaging.APNSConfig(
+            headers={"apns-priority": "10", "interruption-level": "time-sensitive"}
+        ),
     )
 
 

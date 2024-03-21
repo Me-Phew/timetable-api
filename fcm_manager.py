@@ -24,7 +24,7 @@ def create_message(*,
 
 
 def send_messages(messages: list[messaging.Message]) -> None | list:
-    response = messaging.send_all(messages)
+    response = messaging.send_each(messages)
 
     if response.failure_count > 0:
         responses = response.responses
